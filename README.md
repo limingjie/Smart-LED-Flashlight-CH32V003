@@ -9,7 +9,6 @@
   - [Minimized ch32fun Library](#minimized-ch32fun-library)
   - [References](#references)
 
-
 ## Features
 
 - Low-Cost.
@@ -22,9 +21,14 @@
 
 The CH32V003 is a low-cost, high-performance 32-bit RISC-V microcontroller from WCH. It features a compact design, low power consumption, and a rich set of peripherals, making it ideal for embedded applications and cost-sensitive projects. The CH32V003 supports various interfaces such as UART, SPI, I2C, and PWM, and is well-suited for controlling LED drivers and other hardware components.
 
+- [CH32V003 Datasheet](./Documents/CH32V003%20Datasheet%20-%20V1.7%20-%20English.PDF)
+- [CH32V003 Reference Manual](./Documents/CH32V003%20Reference%20Manual%20-%20V1.7%20-%20English.PDF)
+
 ## About the SGM3732
 
 The [SGM3732](https://www.sg-micro.com/product/SGM3732) is a high-efficiency constant current LED driver with a 1.1MHz PWM boost converter, optimized for compact designs using small components. It can drive up to 10 LEDs in series (up to 38V output) or deliver up to 260mA with 3 LEDs per string, while maintaining high conversion efficiency. LED current is programmable via a digital PWM dimming interface (2kHz–60kHz). The device features very low shutdown current and includes protections such as over-voltage, cycle-by-cycle input current limit, and thermal shutdown. The SGM3732 is available in a TSOT-23-6 package and operates from -40℃ to +85℃.
+
+- [SGM3732 Datasheet](./Documents/SGM3732%20Datasheet.pdf)
 
 ## Minimized ch32fun Library
 
