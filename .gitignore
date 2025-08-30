@@ -12,7 +12,9 @@
 # KiCad
 schematic/*/*-backups
 schematic/*/fp-info-cache
-schematic/*/sym-lib-table
+schematic/*/*auto_saved_files*
+schematic/*/_autosave*
+schematic/*/~*
 
 # VSCode
 .vscode/
