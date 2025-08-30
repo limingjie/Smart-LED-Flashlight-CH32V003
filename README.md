@@ -95,7 +95,7 @@ The CH32V003 operates from 2.7V to 5.5V, but shows noticeable current fluctuatio
     >     # make -C $(MINICHLINK) all
     ```
 
-- **`ch32fun.c`** – Changed line 1728 for 1.5MHz HCLK, resulting in lower power consumption (less than 1.5mA).
+- **`ch32fun.c`** – Changed line 1728 for 750kHz HCLK, resulting in lower power consumption (1.08 to 1.12mA).
 
   ```c
   1720: #elif defined(FUNCONF_USE_HSI) && FUNCONF_USE_HSI
@@ -106,7 +106,7 @@ The CH32V003 operates from 2.7V to 5.5V, but shows noticeable current fluctuatio
   1725:     RCC->CFGR0 = BASE_CFGR0;
   1726:     RCC->CTLR  = BASE_CTLR | RCC_HSION | RCC_PLLON; // Use HSI, enable PLL.
   1727: #else
-  1728:     RCC->CFGR0 = RCC_HPRE_DIV16;                    // HCLK = SYSCLK / 16
+  1728:     RCC->CFGR0 = RCC_HPRE_DIV32;                    // HCLK = SYSCLK / 32
   1729:     RCC->CTLR  = BASE_CTLR | RCC_HSION;             // Use HSI only.
   1730: #endif
   ```
