@@ -9,20 +9,24 @@
 #include <stdio.h>
 #include "ch32fun.h"
 
-uint8_t  power_led_pin       = PA2;  // LED pin
-uint8_t  button_pin          = PC1;  // Latch and button pin
-uint8_t  pwm_pin             = PC4;  // PWM output pin
-uint32_t pwm_update_delay_ms = 500;  // LED blink delay in ms
-uint8_t  pwm_state           = 0;
-uint16_t pwm_dim_cycles      = 0;
-uint16_t pwm_dim_cycle_delta = 30;
-uint8_t  pwm_blink_state     = FUN_LOW;
+uint8_t  power_led_pin                  = PC1;  // Power LED pin
+uint8_t  button_and_latch_pin           = PC2;  // Latch and button pin
+uint8_t  pwm_pin                        = PC4;  // PWM output pin
+uint8_t  current_light_mode             = 0;    // 7 modes: 10%, 50%, 100%, 0.5Hz blink, 1Hz blink, 5Hz blink, 3s breath
+uint32_t pwm_update_interval_ms         = 500;  // PWM update interval in ms
+uint16_t pwm_dimming_current_duty_cycle = 0;
+uint8_t  pwm_state                      = 0;  // 0 - off / decrease; 1 - on / increase
+
+#define PWM_FREQUENCY              ((uint32_t)5 * 1000)                         // 5kHz
+#define PWM_DUTY_CYCLE_100_PERCENT (FUNCONF_SYSTEM_CORE_CLOCK / PWM_FREQUENCY)  // 100% duty cycle
+#define PWM_DUTY_CYCLE_50_PERCENT  (PWM_DUTY_CYCLE_100_PERCENT / 2)             // 50% duty cycle
+#define PWM_DUTY_CYCLE_10_PERCENT  (PWM_DUTY_CYCLE_100_PERCENT / 10)            // 10% duty cycle
 
 void systick_init(void)
 {
     SysTick->CTLR = 0;
     NVIC_EnableIRQ(SysTicK_IRQn);
-    SysTick->CMP  = FUNCONF_SYSTEM_CORE_CLOCK / 1000 * pwm_update_delay_ms;
+    SysTick->CMP  = FUNCONF_SYSTEM_CORE_CLOCK / 1000 * pwm_update_interval_ms;
     SysTick->CNT  = 0;
     SysTick->CTLR = SYSTICK_CTLR_STE | SYSTICK_CTLR_STIE | SYSTICK_CTLR_STCLK;
 }
@@ -36,24 +40,24 @@ void SysTick_Handler(void) __attribute__((interrupt));
 void SysTick_Handler(void)
 {
     // SysTick maintains accurate 20ms period
-    SysTick->CMP += FUNCONF_SYSTEM_CORE_CLOCK / 1000 * pwm_update_delay_ms;
+    SysTick->CMP += FUNCONF_SYSTEM_CORE_CLOCK / 1000 * pwm_update_interval_ms;
     SysTick->SR = 0;
 
     // process PWM
-    switch (pwm_state)
+    switch (current_light_mode)
     {
-        case 3:
-        case 4:
-        case 5:
-            TIM1->CH4CVR    = pwm_blink_state ? 150 : 0;  // blink
-            pwm_blink_state = !pwm_blink_state;
+        case 3:  // 0.5Hz blink
+        case 4:  // 1Hz blink
+        case 5:  // 5Hz blink
+            TIM1->CH4CVR = pwm_state ? PWM_DUTY_CYCLE_100_PERCENT : 0;
+            pwm_state    = !pwm_state;
             break;
         case 6:  // Dimming
-            TIM1->CH4CVR = pwm_dim_cycles;
-            pwm_dim_cycles += pwm_dim_cycle_delta;
-            if (pwm_dim_cycles >= 150 || pwm_dim_cycles <= 0)
+            TIM1->CH4CVR = PWM_DUTY_CYCLE_100_PERCENT * pwm_dimming_current_duty_cycle / 100;
+            pwm_dimming_current_duty_cycle += pwm_state ? 1 : -1;
+            if (pwm_dimming_current_duty_cycle >= 100 || pwm_dimming_current_duty_cycle <= 0)
             {
-                pwm_dim_cycle_delta = -pwm_dim_cycle_delta;
+                pwm_state = !pwm_state;
             }
             break;
     }
@@ -76,7 +80,7 @@ void tim1_pwm_init(void)
     TIM1->PSC = 0x0000;
 
     // Auto Reload - sets period
-    TIM1->ATRLR = 149;
+    TIM1->ATRLR = PWM_DUTY_CYCLE_100_PERCENT - 1;
 
     // Reload immediately
     TIM1->SWEVGR |= TIM_UG;
@@ -132,7 +136,7 @@ enum key_events
 
 #define DEBOUNCE_INTERVAL      5    // 5ms
 #define DEBOUNCE_STABLE_CYCLES 5    // 5ms x 5 = 25ms
-#define LONG_PRESS_CYCLES      600  // 5ms x 600 = 3000ms
+#define LONG_PRESS_CYCLES      300  // 5ms x 300 = 1500ms
 
 uint8_t read_button_state(void)
 {
@@ -142,7 +146,7 @@ uint8_t read_button_state(void)
     static uint16_t key_debounce_cycle_count = 0;
 
     uint8_t key_event = KEY_NONE;
-    uint8_t key_state = (funDigitalRead(button_pin) == FUN_LOW) ? KEY_DOWN : KEY_UP;
+    uint8_t key_state = (funDigitalRead(button_and_latch_pin) == FUN_LOW) ? KEY_DOWN : KEY_UP;
     switch (debounce_state)
     {
         case STATE_WAIT_FOR_KEY_PRESS:
@@ -218,8 +222,8 @@ int main()
     funGpioInitAll();
 
     // Power on latch
-    funPinMode(button_pin, GPIO_CFGLR_IN_PUPD);
-    funDigitalWrite(button_pin, FUN_HIGH);  // Input pull-up
+    funPinMode(button_and_latch_pin, GPIO_CFGLR_IN_PUPD);
+    funDigitalWrite(button_and_latch_pin, FUN_HIGH);  // Input pull-up
 
     // Init LED pin
     funPinMode(power_led_pin, GPIO_Speed_10MHz | GPIO_CNF_OUT_PP);
@@ -227,17 +231,18 @@ int main()
 
     // Init TIM1 for PWM
     tim1_pwm_init();
+    TIM1->CH4CVR = PWM_DUTY_CYCLE_10_PERCENT;  // 10% brightness
 
     // If the key is held after power on, wait until it is released.
     // TODO: There should be a more elegant way...
-    if (funDigitalRead(button_pin) == FUN_LOW)
+    if (funDigitalRead(button_and_latch_pin) == FUN_LOW)
     {
         while (1)
         {
-            if (funDigitalRead(button_pin) == FUN_HIGH)
+            if (funDigitalRead(button_and_latch_pin) == FUN_HIGH)
             {
                 Delay_Ms(5);
-                if (funDigitalRead(button_pin) == FUN_HIGH)
+                if (funDigitalRead(button_and_latch_pin) == FUN_HIGH)
                 {
                     break;
                 }
@@ -251,54 +256,57 @@ int main()
         uint8_t key_event = read_button_state();
         if (key_event == KEY_LONG_PRESS_RELEASE)
         {
-            funDigitalWrite(button_pin, FUN_LOW);  // Input pull-down
+            funDigitalWrite(button_and_latch_pin, FUN_LOW);  // Input pull-down
         }
         else if (key_event == KEY_RELEASE)
         {
             printf("Key Released.");
 
-            pwm_state++;
-            pwm_state %= 7;
+            current_light_mode++;
+            current_light_mode %= 7;
 
             // process PWM
-            switch (pwm_state)
+            switch (current_light_mode)
             {
                 case 0:
-                    TIM1->CH4CVR = 15;  // 10% duty cycle
+                    TIM1->CH4CVR = PWM_DUTY_CYCLE_10_PERCENT;  // 10% brightness
                     disable_systick();
                     break;
                 case 1:
-                    TIM1->CH4CVR = 75;  // 50% duty cycle
+                    TIM1->CH4CVR = PWM_DUTY_CYCLE_50_PERCENT;  // 50% brightness
                     disable_systick();
                     break;
                 case 2:
-                    TIM1->CH4CVR = 150;  // 100% duty cycle
+                    TIM1->CH4CVR = PWM_DUTY_CYCLE_100_PERCENT;  // 100% brightness
                     disable_systick();
                     break;
                 case 3:
-                    pwm_blink_state     = FUN_HIGH;
-                    TIM1->CH4CVR        = 0;     // 0% duty cycle
-                    pwm_update_delay_ms = 1000;  // Reset blink delay
-                    systick_init();              // Re-initiate systick, change LED blink interval.
+                    pwm_state              = FUN_HIGH;
+                    TIM1->CH4CVR           = 0;     // 0% brightness
+                    pwm_update_interval_ms = 1000;  // Reset update interval
+                    pwm_state              = 0;     // Starts off
+                    systick_init();                 // Re-initiate systick, apply updated interval.
                     break;
                 case 4:
-                    pwm_blink_state     = FUN_HIGH;
-                    TIM1->CH4CVR        = 0;    // 0% duty cycle
-                    pwm_update_delay_ms = 500;  // Reset blink delay
-                    systick_init();             // Re-initiate systick, change LED blink interval.
+                    pwm_state              = FUN_HIGH;
+                    TIM1->CH4CVR           = 0;    // 0% brightness
+                    pwm_update_interval_ms = 500;  // Reset update interval
+                    pwm_state              = 0;    // Starts off
+                    systick_init();                // Re-initiate systick, apply updated interval.
                     break;
                 case 5:
-                    pwm_blink_state     = FUN_HIGH;
-                    TIM1->CH4CVR        = 0;    // 0% duty cycle
-                    pwm_update_delay_ms = 100;  // Reset blink delay
-                    systick_init();             // Re-initiate systick, change LED blink interval.
+                    pwm_state              = FUN_HIGH;
+                    TIM1->CH4CVR           = 0;    // 0% brightness
+                    pwm_update_interval_ms = 100;  // Reset update interval
+                    pwm_state              = 0;    // Starts off
+                    systick_init();                // Re-initiate systick, apply updated interval.
                     break;
                 case 6:
-                    TIM1->CH4CVR        = 0;  // 0% duty cycle
-                    pwm_dim_cycles      = 0;
-                    pwm_dim_cycle_delta = 1;
-                    pwm_update_delay_ms = 10;  // Reset blink delay
-                    systick_init();            // Re-initiate systick, change LED blink interval.
+                    TIM1->CH4CVR                   = 0;   // 0% brightness
+                    pwm_dimming_current_duty_cycle = 0;   // Current brightness level = 0
+                    pwm_state                      = 1;   // Starts by increasing brightness
+                    pwm_update_interval_ms         = 15;  // Brightness update interval
+                    systick_init();                       // Re-initiate systick, apply updated interval.
                     break;
             }
         }

@@ -1725,7 +1725,7 @@ void SystemInit( void )
 		RCC->CFGR0 = BASE_CFGR0;
 		RCC->CTLR  = BASE_CTLR | RCC_HSION | RCC_PLLON; 			// Use HSI, enable PLL.
 	#else
-		RCC->CFGR0 = RCC_HPRE_DIV16;                               	// HCLK = SYSCLK / 16
+		RCC->CFGR0 = RCC_HPRE_DIV32;                               	// HCLK = SYSCLK / 32
 		RCC->CTLR  = BASE_CTLR | RCC_HSION;     					// Use HSI, Only.
 	#endif
 
