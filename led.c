@@ -22,6 +22,14 @@ uint8_t  pwm_state                      = 0;  // 0 - off / decrease; 1 - on / in
 #define PWM_DUTY_CYCLE_50_PERCENT  (PWM_DUTY_CYCLE_100_PERCENT / 2)             // 50% duty cycle
 #define PWM_DUTY_CYCLE_10_PERCENT  (PWM_DUTY_CYCLE_100_PERCENT / 10)            // 10% duty cycle
 
+#define KEY_DEBOUNCE_INTERVAL      5    // 5ms
+#define KEY_DEBOUNCE_STABLE_CYCLES 5    // 5ms x 5 = 25ms
+#define KEY_LONG_PRESS_CYCLES      300  // 5ms x 300 = 1500ms
+
+#define BATTERY_MONITOR_CYCLES           (1000 / KEY_DEBOUNCE_INTERVAL)
+#define BATTERY_LOW_VOLTAGE_THRESHOLD_MV 3000  // 3.0V
+#define BATTERY_LOW_COUNT_FOR_SHUTDOWN   3     // 3 times
+
 void systick_init(void)
 {
     SysTick->CTLR = 0;
@@ -134,10 +142,6 @@ enum key_events
     KEY_LONG_PRESS_RELEASE
 };
 
-#define DEBOUNCE_INTERVAL      5    // 5ms
-#define DEBOUNCE_STABLE_CYCLES 5    // 5ms x 5 = 25ms
-#define LONG_PRESS_CYCLES      300  // 5ms x 300 = 1500ms
-
 uint8_t read_button_state(void)
 {
     static uint8_t  debounce_state           = STATE_WAIT_FOR_KEY_PRESS;
@@ -161,7 +165,7 @@ uint8_t read_button_state(void)
             ++key_debounce_cycle_count;
             if (key_state == KEY_DOWN)  // still pressed
             {
-                if (key_debounce_cycle_count >= DEBOUNCE_STABLE_CYCLES)
+                if (key_debounce_cycle_count >= KEY_DEBOUNCE_STABLE_CYCLES)
                 {
                     key_event       = KEY_PRESS;
                     key_cycle_count = 0;
@@ -180,7 +184,7 @@ uint8_t read_button_state(void)
             ++key_cycle_count;
             if (key_state == KEY_UP)  // released
             {
-                if (key_cycle_count >= LONG_PRESS_CYCLES)
+                if (key_cycle_count >= KEY_LONG_PRESS_CYCLES)
                 {
                     key_long_press = 1;
                     printf("Long Press!!! cycle = %d\n", key_cycle_count);
@@ -194,7 +198,7 @@ uint8_t read_button_state(void)
             ++key_debounce_cycle_count;
             if (key_state == KEY_UP)  // still released
             {
-                if (key_debounce_cycle_count >= DEBOUNCE_STABLE_CYCLES)
+                if (key_debounce_cycle_count >= KEY_DEBOUNCE_STABLE_CYCLES)
                 {
                     key_event      = key_long_press ? KEY_LONG_PRESS_RELEASE : KEY_RELEASE;
                     debounce_state = STATE_WAIT_FOR_KEY_PRESS;
@@ -209,7 +213,7 @@ uint8_t read_button_state(void)
             break;
     }
 
-    Delay_Ms(DEBOUNCE_INTERVAL);
+    Delay_Ms(KEY_DEBOUNCE_INTERVAL);
 
     return key_event;
 }
@@ -229,9 +233,13 @@ int main()
     funPinMode(power_led_pin, GPIO_Speed_10MHz | GPIO_CNF_OUT_PP);
     funDigitalWrite(power_led_pin, FUN_LOW);
 
+    // Init ADC for battery voltage monitoring
+    funAnalogInit();
+    funPinMode(PD6, GPIO_CFGLR_IN_ANALOG);
+
     // Init TIM1 for PWM
     tim1_pwm_init();
-    TIM1->CH4CVR = PWM_DUTY_CYCLE_10_PERCENT;  // 10% brightness
+    // TIM1->CH4CVR = PWM_DUTY_CYCLE_10_PERCENT;  // 10% brightness
 
     // If the key is held after power on, wait until it is released.
     // TODO: There should be a more elegant way...
@@ -251,8 +259,45 @@ int main()
         }
     }
 
+    uint16_t battery_monitor_cycle_count = 0;
+    uint8_t  battery_low_count           = 0;
+
     while (1)
     {
+        battery_monitor_cycle_count++;
+        if (battery_monitor_cycle_count >= BATTERY_MONITOR_CYCLES)
+        {
+            battery_monitor_cycle_count = 0;
+
+            uint16_t v_ref  = funAnalogRead(ANALOG_8);  // Internal reference 1.2V
+            uint16_t v_adc6 = funAnalogRead(ANALOG_6);  // PD6
+
+            uint16_t battery_voltage_mv = (uint16_t)((uint32_t)v_adc6 * 1200 / v_ref * (9786 + 9961) / 9786);
+
+            printf("V_ref: 1.2 V (%d), V_A7: %d mV (%d)\n", v_ref, battery_voltage_mv, v_adc6);
+
+            if (battery_voltage_mv < BATTERY_LOW_VOLTAGE_THRESHOLD_MV)
+            {
+                if (++battery_low_count >= BATTERY_LOW_COUNT_FOR_SHUTDOWN)
+                {
+                    for (uint8_t i = 0; i < 10; i++)
+                    {
+                        funDigitalWrite(power_led_pin, FUN_HIGH);  // Turn on LED
+                        Delay_Ms(100);
+                        funDigitalWrite(power_led_pin, FUN_LOW);  // Turn off LED
+                        Delay_Ms(100);
+                    }
+
+                    printf("Battery too low! Powering off...\n");
+                    funDigitalWrite(button_and_latch_pin, FUN_LOW);  // Input pull-down
+                }
+            }
+            else
+            {
+                battery_low_count = 0;
+            }
+        }
+
         uint8_t key_event = read_button_state();
         if (key_event == KEY_LONG_PRESS_RELEASE)
         {
@@ -282,24 +327,24 @@ int main()
                     break;
                 case 3:
                     pwm_state              = FUN_HIGH;
-                    TIM1->CH4CVR           = 0;     // 0% brightness
-                    pwm_update_interval_ms = 1000;  // Reset update interval
-                    pwm_state              = 0;     // Starts off
-                    systick_init();                 // Re-initiate systick, apply updated interval.
+                    TIM1->CH4CVR           = PWM_DUTY_CYCLE_10_PERCENT;  // 0% brightness
+                    pwm_update_interval_ms = 1000;                       // Reset update interval
+                    pwm_state              = 0;                          // Starts off
+                    systick_init();                                      // Re-initiate systick, apply updated interval.
                     break;
                 case 4:
                     pwm_state              = FUN_HIGH;
-                    TIM1->CH4CVR           = 0;    // 0% brightness
-                    pwm_update_interval_ms = 500;  // Reset update interval
-                    pwm_state              = 0;    // Starts off
-                    systick_init();                // Re-initiate systick, apply updated interval.
+                    TIM1->CH4CVR           = PWM_DUTY_CYCLE_10_PERCENT;  // 0% brightness
+                    pwm_update_interval_ms = 500;                        // Reset update interval
+                    pwm_state              = 0;                          // Starts off
+                    systick_init();                                      // Re-initiate systick, apply updated interval.
                     break;
                 case 5:
                     pwm_state              = FUN_HIGH;
-                    TIM1->CH4CVR           = 0;    // 0% brightness
-                    pwm_update_interval_ms = 100;  // Reset update interval
-                    pwm_state              = 0;    // Starts off
-                    systick_init();                // Re-initiate systick, apply updated interval.
+                    TIM1->CH4CVR           = PWM_DUTY_CYCLE_10_PERCENT;  // 0% brightness
+                    pwm_update_interval_ms = 100;                        // Reset update interval
+                    pwm_state              = 0;                          // Starts off
+                    systick_init();                                      // Re-initiate systick, apply updated interval.
                     break;
                 case 6:
                     TIM1->CH4CVR                   = 0;   // 0% brightness
