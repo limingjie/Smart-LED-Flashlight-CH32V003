@@ -8,6 +8,8 @@ This project demonstrates a low-cost, USB-powered portable LED light using the C
   - [Features](#features)
   - [Components](#components)
     - [MCU - CH32V003](#mcu---ch32v003)
+      - [Clock Selection](#clock-selection)
+      - [Battery Monitoring](#battery-monitoring)
     - [LED Driver - SGM3732](#led-driver---sgm3732)
     - [Soft Latching Power Circuit](#soft-latching-power-circuit)
     - [LDO - ME6211](#ldo---me6211)
@@ -24,11 +26,12 @@ This project demonstrates a low-cost, USB-powered portable LED light using the C
 
 ## Features
 
-- Low cost
-- PWM-controlled brightness
-- Up to 10 LEDs in series
-- 2.7V to 5.5V power, suitable for lithium batteries
-- Soft latching power circuit – ideal for battery-powered applications, as it draws no current once powered off
+- Low-cost
+- PWM-controlled adjustable brightness
+- Supports up to 10 LEDs in series
+- Operates from `3.0V` to `5.5V` (suitable for lithium batteries)
+- Soft latching power circuit for zero standby current
+- Automatic power monitoring and low-voltage lockout to prevent battery drain
 
 ## Components
 
@@ -36,10 +39,32 @@ This project demonstrates a low-cost, USB-powered portable LED light using the C
 
 The CH32V003 is a low-cost, high-performance 32-bit RISC-V microcontroller from WCH. It features a compact design, low power consumption, and a rich set of peripherals, making it ideal for embedded applications and cost-sensitive projects. The CH32V003 supports various interfaces such as UART, SPI, I2C, and PWM, and is well-suited for controlling LED drivers and other hardware components.
 
-With a 750kHz clock (1/32 of the internal high-speed clock), it only draws 1.08 to 1.12mA, which is less than the current consumed by the power LED.
-
 - [CH32V003 Datasheet](./Documents/CH32V003%20Datasheet%20-%20V1.7.PDF)
 - [CH32V003 Reference Manual](./Documents/CH32V003%20Reference%20Manual%20-%20V1.7.PDF)
+
+#### Clock Selection
+
+With a `1.5MHz` clock (`1/16` of the internal high-speed clock), the CH32V003 draws around `1.53mA` (the power LED draws around `1.35mA`). Clocks lower than `1.5MHz` do not seem to work properly after enabling the ADC and may brick the chip. If this happens, try the unbrick command (`minichlink -u`) or flash a firmware with a higher clock; note that it may require more than 10 attempts. The chip is quite robust, but recovering it may require patience!
+
+#### Battery Monitoring
+
+When using a lithium battery as the power supply, and considering the cutoff voltages of the CH32V003 and SGM3732, the lockout voltage is set at `3.0V` if detected 3 times.
+
+- CH32V003: `2.8V`-`5.5V` (With ADC).
+- SGM3732: `2.7V`-`5.5V`.
+
+Since the power supply can drop below `3.3V`, directly using `3.3V` as the ADC reference would lead to inaccurate results. Fortunately, the CH32V003 provides an internal voltage reference (`1.2V` on analog channel 8), which allows for accurate ADC measurements with an error within `±1%`.
+
+$$
+\begin{align}
+\text{V}_\text{Reference} &= \text{V}_\text{DD} \times \frac{\text{ADC}_{\text{Reference}}}{1023}
+\Longrightarrow \text{V}_\text{DD} = \frac{\text{V}_\text{Reference}}{\frac{\text{ADC}_{\text{Reference}}}{1023}} \\
+\text{V}_\text{Battery} &= \text{V}_\text{DD} \times \frac{\text{ADC}_{\text{Battery}}}{1023} \\
+&= \frac{\text{V}_\text{Reference}}{\frac{\text{ADC}_{\text{Reference}}}{1023}} \times \frac{\text{ADC}_{\text{Battery}}}{1023} \\
+&= \text{V}_\text{Reference} \times \frac{\text{ADC}_{\text{Battery}}}{\text{ADC}_\text{Reference}}\\
+&=  1.2\,\text{V} \times \frac{\text{ADC}_{\text{Battery}}}{\text{ADC}_\text{Reference}}
+\end{align}
+$$
 
 ### LED Driver - SGM3732
 
@@ -54,7 +79,7 @@ Refer to the [CH32V003 Soft Latching Power Circuits](https://github.com/limingji
 
 ### LDO - ME6211
 
-The CH32V003 operates from 2.7V to 5.5V, but shows noticeable current fluctuations when powered directly from USB. Using an LDO stabilizes the MCU’s power supply and reduces current consumption by a few milliamps.
+The CH32V003 operates from `2.7V` to `5.5V`, but shows noticeable current fluctuations when powered directly from USB. Using an LDO stabilizes the MCU’s power supply and reduces current consumption by a few milliamps.
 
 - [ME6211 Datasheet - V24](./Documents/ME6211%20Datasheet%20-%20V26.pdf)
 
@@ -95,21 +120,30 @@ The CH32V003 operates from 2.7V to 5.5V, but shows noticeable current fluctuatio
     >     # make -C $(MINICHLINK) all
     ```
 
-- **`ch32fun.c`** – Changed line 1728 for 8MHz HCLK, resulting in lower power consumption (<3mA).
+- **`ch32fun.c`**
+  - Changed line `1728` for `1.5MHz` HCLK, resulting in lower power consumption (<`1.6mA`).
 
-  ```c
-  1720: #elif defined(FUNCONF_USE_HSI) && FUNCONF_USE_HSI
-  1721: #if defined(CH32V30x) || defined(CH32V20x) || defined(CH32V10x)
-  1722:     EXTEN->EXTEN_CTR |= EXTEN_PLL_HSI_PRE;
-  1723: #endif
-  1724: #if defined(FUNCONF_USE_PLL) && FUNCONF_USE_PLL
-  1725:     RCC->CFGR0 = BASE_CFGR0;
-  1726:     RCC->CTLR  = BASE_CTLR | RCC_HSION | RCC_PLLON; // Use HSI, enable PLL.
-  1727: #else
-  1728:     RCC->CFGR0 = RCC_HPRE_DIV3;                     // HCLK = SYSCLK / 3
-  1729:     RCC->CTLR  = BASE_CTLR | RCC_HSION;             // Use HSI only.
-  1730: #endif
-  ```
+    ```c
+    1720: #elif defined(FUNCONF_USE_HSI) && FUNCONF_USE_HSI
+    1721: #if defined(CH32V30x) || defined(CH32V20x) || defined(CH32V10x)
+    1722:     EXTEN->EXTEN_CTR |= EXTEN_PLL_HSI_PRE;
+    1723: #endif
+    1724: #if defined(FUNCONF_USE_PLL) && FUNCONF_USE_PLL
+    1725:     RCC->CFGR0 = BASE_CFGR0;
+    1726:     RCC->CTLR  = BASE_CTLR | RCC_HSION | RCC_PLLON; // Use HSI, enable PLL.
+    1727: #else
+    1728:     RCC->CFGR0 = RCC_HPRE_DIV16;                    // HCLK = SYSCLK / 16
+    1729:     RCC->CTLR  = BASE_CTLR | RCC_HSION;             // Use HSI only.
+    1730: #endif
+    ```
+
+  - Set ADC sampling time to `241` cycles for better accuracy.
+
+    ```c
+    1808: // set sampling time for all channels to 0b111 (241 cycles).
+    1809: ADC1->SAMPTR2 = (ADC_SMP0<<(3*0)) | (ADC_SMP0<<(3*1)) | (ADC_SMP0<<(3*2)) | (ADC_SMP0<<(3*3)) | (ADC_SMP0<<  (3*4)) | (ADC_SMP0<<(3*5)) | (ADC_SMP0<<(3*6)) | (ADC_SMP0<<(3*7)) | (ADC_SMP0<<(3*8)) | (ADC_SMP0<<(3*9));
+    1810: ADC1->SAMPTR1 = (ADC_SMP0<<(3*0)) | (ADC_SMP0<<(3*1)) | (ADC_SMP0<<(3*2)) | (ADC_SMP0<<(3*3)) | (ADC_SMP0<<  (3*4)) | (ADC_SMP0<<(3*5));
+    ```
 
 ## References
 

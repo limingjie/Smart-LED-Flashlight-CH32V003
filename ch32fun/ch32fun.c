@@ -1725,7 +1725,7 @@ void SystemInit( void )
 		RCC->CFGR0 = BASE_CFGR0;
 		RCC->CTLR  = BASE_CTLR | RCC_HSION | RCC_PLLON; 			// Use HSI, enable PLL.
 	#else
-		RCC->CFGR0 = RCC_HPRE_DIV3;                               	// HCLK = SYSCLK / 32
+		RCC->CFGR0 = RCC_HPRE_DIV16;                               	// HCLK = SYSCLK / 16
 		RCC->CTLR  = BASE_CTLR | RCC_HSION;     					// Use HSI, Only.
 	#endif
 
@@ -1805,9 +1805,9 @@ void funAnalogInit( void )
 	RCC->APB2PRSTR |= RCC_APB2Periph_ADC1;
 	RCC->APB2PRSTR &= ~RCC_APB2Periph_ADC1;
 
-	// set sampling time for all channels to 15 (A good middleground) ADC_SMP0_1.
-	ADC1->SAMPTR2 = (ADC_SMP0_1<<(3*0)) | (ADC_SMP0_1<<(3*1)) | (ADC_SMP0_1<<(3*2)) | (ADC_SMP0_1<<(3*3)) | (ADC_SMP0_1<<(3*4)) | (ADC_SMP0_1<<(3*5)) | (ADC_SMP0_1<<(3*6)) | (ADC_SMP0_1<<(3*7)) | (ADC_SMP0_1<<(3*8)) | (ADC_SMP0_1<<(3*9));
-	ADC1->SAMPTR1 = (ADC_SMP0_1<<(3*0)) | (ADC_SMP0_1<<(3*1)) | (ADC_SMP0_1<<(3*2)) | (ADC_SMP0_1<<(3*3)) | (ADC_SMP0_1<<(3*4)) | (ADC_SMP0_1<<(3*5));
+	// set sampling time for all channels to 0b111 (241 cycles).
+	ADC1->SAMPTR2 = (ADC_SMP0<<(3*0)) | (ADC_SMP0<<(3*1)) | (ADC_SMP0<<(3*2)) | (ADC_SMP0<<(3*3)) | (ADC_SMP0<<(3*4)) | (ADC_SMP0<<(3*5)) | (ADC_SMP0<<(3*6)) | (ADC_SMP0<<(3*7)) | (ADC_SMP0<<(3*8)) | (ADC_SMP0<<(3*9));
+	ADC1->SAMPTR1 = (ADC_SMP0<<(3*0)) | (ADC_SMP0<<(3*1)) | (ADC_SMP0<<(3*2)) | (ADC_SMP0<<(3*3)) | (ADC_SMP0<<(3*4)) | (ADC_SMP0<<(3*5));
 
 	ADC1->CTLR2 |= ADC_ADON | ADC_EXTSEL;	// turn on ADC and set rule group to sw trig
 
