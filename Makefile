@@ -1,6 +1,7 @@
 all : flash
 
 TARGET:=led
+ADDITIONAL_C_FILES:=button.c
 
 TARGET_MCU?=CH32V003
 include ./ch32fun/ch32fun.mk
