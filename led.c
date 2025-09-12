@@ -11,31 +11,38 @@
 #include "ch32fun.h"
 #include "button.h"
 
-#define PIN_POWER_LED   PC1  // Power LED pin
-#define PIN_LATCH       PC2  // Latch pin
-#define PIN_MODE_BUTTON PC2  // Mode button pin, same as latch pin
-#define PIN_SET_BUTTON  PA2  // Set button pin
-#define PIN_PWM         PC4  // PWM output pin
+#define PIN_POWER_LED    PC1  // Power LED pin
+#define PIN_LATCH        PC2  // Latch pin
+#define PIN_MODE_BUTTON  PC2  // Mode button pin, same as latch pin
+#define PIN_LEVEL_BUTTON PA2  // Set button pin
+#define PIN_PWM          PC4  // PWM output pin
 
-#define POWER_MONITORING_CYCLES (5000 / BTN_DEBOUNCE_INTERVAL_MS)  // Every 5 seconds
-#define POWER_VOLTDIV_R_UP      100                                // 10k    | 10k + 14.7k voltage divider
-#define POWER_VOLTDIV_R_DOWN    147                                // 14.7k  | 5.5V / 24.7 x 14.7 = 3.27V
-#define POWER_LOW_VOLT_THLD_MV  3000                               // 3.0V
-#define POWER_LOW_COUNT_THLD    3                                  // 3 times
+#define POWER_MONITORING_CYCLES 1000  // Every 5 seconds - button_debounce() = 5ms
+#define POWER_VOLTDIV_R_UP      100   // 10k    | 10k + 14.7k voltage divider
+#define POWER_VOLTDIV_R_DOWN    147   // 14.7k  | 5.5V / 24.7 x 14.7 = 3.27V
+#define POWER_LOW_VOLT_THLD_MV  3000  // 3.0V
+#define POWER_LOW_COUNT_THLD    3     // 3 times
 
-#define PWM_FREQUENCY                ((uint32_t)5 * 1000)                         // 5kHz
-#define PWM_TICKS_100_PCT_DUTY_CYCLE (FUNCONF_SYSTEM_CORE_CLOCK / PWM_FREQUENCY)  // 100% duty cycle
-#define PWM_TICKS_0_PCT_DUTY_CYCLE   0                                            // 0% duty cycle
-#define PWM_MODE_ON                  1
-#define PWM_MODE_OFF                 0
-#define PWM_MODE_INCREASE            1
-#define PWM_MODE_DECREASE            0
+#define PWM_FREQUENCY              ((uint32_t)5 * 1000)                         // 5kHz
+#define PWM_CLOCKS_FULL_DUTY_CYCLE (FUNCONF_SYSTEM_CORE_CLOCK / PWM_FREQUENCY)  // 100% duty cycle
+#define PWM_CLOCKS_ZERO_DUTY_CYCLE 0                                            // 0% duty cycle
+#define PWM_MODE_ON                1
+#define PWM_MODE_OFF               0
+#define PWM_MODE_INCREASE          1
+#define PWM_MODE_DECREASE          0
 
-uint8_t  current_light_mode         = 0;     // 3 modes: brightness, blink, dimming
-uint8_t  current_light_setting      = 10;    // 1 - 10 levels of brightness, blink speed, dimming speed
+#define MODE_BRIGHTNESS 0
+#define MODE_BLINK      1
+#define MODE_DIMMING    2
+#define MODE_SOS        3
+#define MODE_OFF        4
+
+uint8_t  current_mode               = 0;     // 5 modes: brightness, blink, dimming, sos, off
+uint8_t  current_level              = 10;    // 1 - 10 levels of brightness, blink speed, dimming speed
 uint16_t current_pwm_duty_cycle_pct = 0;     // Lights off
 uint32_t pwm_update_interval_ms     = 1000;  // systick interval in ms, set before initialize systick.
 uint8_t  pwm_mode                   = 0;     // 0 - off / decrease; 1 - on / increase
+uint8_t  SOS_sequence               = 0;
 
 void systick_init(void)
 {
@@ -59,19 +66,44 @@ void SysTick_Handler(void)
     SysTick->SR = 0;
 
     // process light modes and settings
-    switch (current_light_mode)
+    switch (current_mode)
     {
-        case 1:  // blink
-            TIM1->CH4CVR = (pwm_mode == PWM_MODE_ON) ? PWM_TICKS_100_PCT_DUTY_CYCLE : PWM_TICKS_0_PCT_DUTY_CYCLE;
+        case MODE_BLINK:  // blink
+            TIM1->CH4CVR = (pwm_mode == PWM_MODE_ON) ? PWM_CLOCKS_FULL_DUTY_CYCLE : PWM_CLOCKS_ZERO_DUTY_CYCLE;
             pwm_mode     = !pwm_mode;
             break;
-        case 2:  // dimming
-            TIM1->CH4CVR = PWM_TICKS_100_PCT_DUTY_CYCLE * current_pwm_duty_cycle_pct / 100;
+        case MODE_DIMMING:  // dimming
+            TIM1->CH4CVR = PWM_CLOCKS_FULL_DUTY_CYCLE * current_pwm_duty_cycle_pct / 100;
             (pwm_mode == PWM_MODE_INCREASE) ? current_pwm_duty_cycle_pct++ : current_pwm_duty_cycle_pct--;
             if (current_pwm_duty_cycle_pct >= 100 || current_pwm_duty_cycle_pct <= 0)
             {
                 pwm_mode = !pwm_mode;
             }
+            break;
+        case MODE_SOS:
+            // The duration of a dah is three times the duration of a dit. Each dit or dah within an encoded character
+            // is followed by a period of signal absence, called a space, equal to the dit duration.
+            // So, with a fixed cycle, SOS Morse Code is the following sequence of on and off.
+            //   Morse Code - . . . --- --- --- . . .[3s wait]
+            //       Binary - 10101011101110111010101000000000
+            //         Time - |----+----|----+----|----+----|-
+            //           On - 0 2 4 678 012 456 8 0 2
+            //          Off -  1 3 5   9   3   7 9 1 345678901
+            if (SOS_sequence >= 23 ||
+                (SOS_sequence % 2 && SOS_sequence != 7 && SOS_sequence != 11 && SOS_sequence != 15))
+            {
+                TIM1->CH4CVR = PWM_CLOCKS_ZERO_DUTY_CYCLE;
+            }
+            else
+            {
+                TIM1->CH4CVR = PWM_CLOCKS_FULL_DUTY_CYCLE;
+            }
+
+            if (SOS_sequence++ > 31)
+            {
+                SOS_sequence = 0;
+            }
+
             break;
     }
 }
@@ -93,7 +125,7 @@ void tim1_pwm_init(void)
     TIM1->PSC = 0x0000;
 
     // Auto Reload - sets period
-    TIM1->ATRLR = PWM_TICKS_100_PCT_DUTY_CYCLE - 1;
+    TIM1->ATRLR = PWM_CLOCKS_FULL_DUTY_CYCLE - 1;
 
     // Reload immediately
     TIM1->SWEVGR |= TIM_UG;
@@ -105,7 +137,7 @@ void tim1_pwm_init(void)
     TIM1->CHCTLR2 |= TIM_OC4M_2 | TIM_OC4M_1;
 
     // Set the Capture Compare Register value to 0% initially
-    TIM1->CH4CVR = PWM_TICKS_0_PCT_DUTY_CYCLE;
+    TIM1->CH4CVR = PWM_CLOCKS_ZERO_DUTY_CYCLE;
 
     // Enable TIM1 outputs
     TIM1->BDTR |= TIM_MOE;
@@ -164,33 +196,41 @@ void power_monitor(void)
     }
 }
 
-void change_light_setting(uint8_t mode, uint8_t setting)
+void update_led(void)
 {
-    printf("Change to mode %d, setting %d\n", mode, setting);
-    disable_systick();  // Disable systick during mode change to avoid interference
+    printf("Change to mode %d, level %d\n", current_mode, current_level);
 
-    switch (mode)
+    disable_systick();
+
+    switch (current_mode)
     {
-        case 0:
-            TIM1->CH4CVR = PWM_TICKS_100_PCT_DUTY_CYCLE / 10 * setting;  // 10, 20, ..., 100%
+        case MODE_BRIGHTNESS:
+            TIM1->CH4CVR = PWM_CLOCKS_FULL_DUTY_CYCLE / 10 * current_level;  // 10, 20, ..., 100%
             break;
-        case 1:
-            pwm_mode = PWM_MODE_ON;
-            // TIM1->CH4CVR           = PWM_TICKS_100_PCT_DUTY_CYCLE;  // 100% brightness
-            pwm_update_interval_ms = setting * 50;  // 50ms, 100ms, 150ms, ..., 500ms
-            systick_init();                         // Re-initiate systick, apply updated interval.
+        case MODE_BLINK:
+            pwm_mode               = PWM_MODE_ON;
+            pwm_update_interval_ms = current_level * 50;  // 50ms, 100ms, 150ms, ..., 500ms
+            systick_init();
             break;
-        case 2:
-            pwm_mode = PWM_MODE_DECREASE;  // Starts by decreasing brightness
-            // TIM1->CH4CVR               = PWM_TICKS_100_PCT_DUTY_CYCLE;  // 100% brightness
+        case MODE_DIMMING:
+            pwm_mode                   = PWM_MODE_DECREASE;  // Starts by decreasing brightness
+            pwm_update_interval_ms     = current_level * 2;
             current_pwm_duty_cycle_pct = 100;  // Current brightness level = 100
-            pwm_update_interval_ms     = setting * 2;
-            systick_init();  // Re-initiate systick, apply updated interval.
+            systick_init();
+            break;
+        case MODE_SOS:
+            SOS_sequence           = 0;
+            TIM1->CH4CVR           = PWM_CLOCKS_ZERO_DUTY_CYCLE;
+            pwm_update_interval_ms = 333;
+            systick_init();
+            break;
+        case MODE_OFF:
+            TIM1->CH4CVR = PWM_CLOCKS_ZERO_DUTY_CYCLE;
             break;
     }
 }
 
-int main()
+int main(void)
 {
     SystemInit();
     Delay_Ms(50);
@@ -214,21 +254,20 @@ int main()
 
     // Init TIM1 for PWM
     tim1_pwm_init();
-    TIM1->CH4CVR = PWM_TICKS_100_PCT_DUTY_CYCLE;  // Starts with mode 0 - 100% brightness
+    TIM1->CH4CVR = PWM_CLOCKS_FULL_DUTY_CYCLE;  // Starts with mode 0 - 100% brightness
 
     // Init buttons
     // funPinMode(PIN_MODE_BUTTON, GPIO_CFGLR_IN_PUPD); // Share the same pin as latch, already set above.
     // funDigitalWrite(PIN_MODE_BUTTON, FUN_HIGH);
-    funPinMode(PIN_SET_BUTTON, GPIO_CFGLR_IN_PUPD);
-    funDigitalWrite(PIN_SET_BUTTON, FUN_HIGH);
+    funPinMode(PIN_LEVEL_BUTTON, GPIO_CFGLR_IN_PUPD);
+    funDigitalWrite(PIN_LEVEL_BUTTON, FUN_HIGH);
 
     button_t mode_button;
-    button_t set_button;
     init_button(&mode_button, PIN_MODE_BUTTON);
-    init_button(&set_button, PIN_SET_BUTTON);
+    button_t level_button;
+    init_button(&level_button, PIN_LEVEL_BUTTON);
 
     uint16_t power_monitoring_cycles = 0;
-    uint8_t  button_event;
     while (1)
     {
         if (++power_monitoring_cycles >= POWER_MONITORING_CYCLES)
@@ -237,57 +276,58 @@ int main()
             power_monitoring_cycles = 0;
         }
 
-        button_event = read_button_event(&mode_button);
-        if (button_event == BTN_HOLD)  // Turn off lights
+        switch (get_button_event(&mode_button))
         {
-            disable_systick();
-            TIM1->CH4CVR = PWM_TICKS_0_PCT_DUTY_CYCLE;
-            printf("Turn off LEDs.\n");
+            case BUTTON_HOLD:  // Turn off lights
+                printf("Turn off LEDs.\n");
+                disable_systick();
+                current_mode  = MODE_OFF;
+                current_level = 0;
+                update_led();
+                break;
+            case BUTTON_HOLD_RELEASED:  // Power off the entire circuit
+                printf("Powering off...\n");
+                funDigitalWrite(PIN_LATCH, FUN_LOW);  // Input pull-down
+
+                // These 2 lines are for debugging purpose only, code should not reach here if correctly shutdown.
+                // However, if the MCU is powered by WCH-LinkE, the code will keep running. Then, the key event loop
+                // would detect the power off pull down as a key down, then there would be endless BUTTON_HOLD events.
+                Delay_Ms(100);
+                funDigitalWrite(PIN_LATCH, FUN_HIGH);  // Input pull-up
+                current_mode  = MODE_BRIGHTNESS;
+                current_level = 10;
+                update_led();
+                break;
+            case BUTTON_RELEASED:  // Change light mode
+                printf("Mode button released.\n");
+
+                // Move to next mode
+                current_mode++;
+                current_mode %= 4;
+                current_level = 10;  // Reset setting to max
+                update_led();
+                break;
         }
-        else if (button_event == BTN_HOLD_RELEASE)  // Power off the entire circuit
+
+        switch (get_button_event(&level_button))
         {
-            printf("Powering off...\n");
-            funDigitalWrite(PIN_LATCH, FUN_LOW);  // Input pull-down
+            case BUTTON_RELEASED:  // Change light setting
+                printf("Set button released.\n");
+                current_level--;
+                if (current_level <= 0 || current_level > 10)
+                {
+                    current_level = 10;  // Reset to max
+                }
 
-            // These 2 lines are for debugging purpose only, code should not reach here if correctly shutdown.
-            // However, if the MCU is powered by WCH-LinkE, the code will keep running. Then, the key event loop would
-            // detect the power off pull down as a key down, then there would be endless BTN_HOLD events.
-            Delay_Ms(100);
-            funDigitalWrite(PIN_LATCH, FUN_HIGH);  // Input pull-up
-        }
-        else if (button_event == BTN_RELEASE)  // Change light mode
-        {
-            printf("Mode button released.\n");
-
-            // Move to next mode
-            current_light_mode++;
-            current_light_mode %= 3;
-            current_light_setting = 10;  // Reset setting to max
-            change_light_setting(current_light_mode, current_light_setting);
+                update_led();
+                break;
+            case BUTTON_HOLD:  // Change light setting to min or max
+                printf("Set button hold.\n");
+                current_level = (current_level > 5) ? 1 : 10;
+                update_led();
+                break;
         }
 
-        button_event = read_button_event(&set_button);
-        if (button_event == BTN_RELEASE)  // Change light setting
-        {
-            printf("Set button released.\n");
-            current_light_setting--;
-            if (current_light_setting <= 0 || current_light_setting > 10)
-            {
-                current_light_setting = 10;  // Reset to max
-            }
-
-            change_light_setting(current_light_mode, current_light_setting);
-        }
-        else if (button_event == BTN_HOLD_RELEASE)
-        {
-            printf("Set button hold.\n");
-            current_light_setting -= 3;
-            if (current_light_setting <= 0 || current_light_setting > 10)
-            {
-                current_light_setting = 10;  // Reset to max
-            }
-
-            change_light_setting(current_light_mode, current_light_setting);
-        }
+        button_debounce();
     }
 }

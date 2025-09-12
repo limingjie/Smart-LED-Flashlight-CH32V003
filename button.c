@@ -1,116 +1,121 @@
 #include "button.h"
 #include <stdio.h>
 
-enum debounce_states
-{
-    STATE_WAIT_FOR_BTN_PRESS,
-    STATE_BTN_PRESS_DEBOUNCE,
-    STATE_WAIT_FOR_BTN_RELEASE,
-    STATE_BTN_RELEASE_DEBOUNCE
-};
+#define BUTTON_DEBOUNCE_INTERVAL_MS   5    // 5ms
+#define BUTTON_DEBOUNCE_STABLE_CYCLES 5    // 5ms x 5 = 25ms
+#define BUTTON_HOLD_CYCLE_THLD        200  // 5ms x 200 = 1000ms
 
-enum button_states
+enum states
 {
-    BTN_UP,
-    BTN_DOWN
+    STATE_WAIT_FOR_BUTTON_PRESS,
+    STATE_BUTTON_PRESS_DEBOUNCE,
+    STATE_WAIT_FOR_BUTTON_RELEASE,
+    STATE_BUTTON_RELEASE_DEBOUNCE
 };
 
 void init_button(button_t *btn, uint8_t pin)
 {
-    btn->pin                  = pin;
-    btn->debounce_states      = STATE_WAIT_FOR_BTN_PRESS;
-    btn->hold                 = 0;
-    btn->cycle_count          = 0;
-    btn->debounce_cycle_count = 0;
+    btn->pin             = pin;
+    btn->hold            = 0;
+    btn->press_cycles    = 0;
+    btn->debounce_cycles = 0;
+    btn->states          = STATE_WAIT_FOR_BUTTON_PRESS;
 
     if (funDigitalRead(pin) == FUN_LOW)
     {
-        btn->debounce_states = STATE_WAIT_FOR_BTN_RELEASE;
+        btn->states = STATE_WAIT_FOR_BUTTON_RELEASE;
         uint8_t button_event;
         while (1)  // Wait until button released
         {
-            button_event = read_button_event(btn);
-            if (button_event == BTN_RELEASE || button_event == BTN_HOLD_RELEASE)
+            button_event = get_button_event(btn);
+            if (button_event == BUTTON_RELEASED || button_event == BUTTON_HOLD_RELEASED)
             {
                 break;
             }
+            button_debounce();
         }
     }
 }
 
-uint8_t read_button_event(button_t *btn)
+uint8_t get_button_event(button_t *btn)
 {
-    uint8_t button_event = BTN_NONE;
-    uint8_t button_state = (funDigitalRead(btn->pin) == FUN_LOW) ? BTN_DOWN : BTN_UP;
+    uint8_t button_event   = BUTTON_NONE;
+    uint8_t is_button_down = (funDigitalRead(btn->pin) == FUN_LOW);
 
-    switch (btn->debounce_states)
+    switch (btn->states)
     {
-        case STATE_WAIT_FOR_BTN_PRESS:
-            if (button_state == BTN_DOWN)  // pressed
+        case STATE_WAIT_FOR_BUTTON_PRESS:
+            if (is_button_down)  // pressed
             {
-                btn->debounce_cycle_count = 0;
-                btn->debounce_states      = STATE_BTN_PRESS_DEBOUNCE;
-                printf("STATE_BTN_PRESS_DEBOUNCE\n");
+                btn->debounce_cycles = 0;
+                btn->states          = STATE_BUTTON_PRESS_DEBOUNCE;
+                printf("STATE_BUTTON_PRESS_DEBOUNCE\n");
             }
             break;
-        case STATE_BTN_PRESS_DEBOUNCE:
-            ++btn->debounce_cycle_count;
-            if (button_state == BTN_DOWN)  // holding
+        case STATE_BUTTON_PRESS_DEBOUNCE:
+            ++btn->debounce_cycles;
+            if (is_button_down)  // still pressed after debounce time
             {
-                if (btn->debounce_cycle_count >= BTN_DEBOUNCE_STABLE_CYCLES)
+                if (btn->debounce_cycles >= BUTTON_DEBOUNCE_STABLE_CYCLES)
                 {
-                    button_event         = BTN_PRESS;
-                    btn->cycle_count     = 0;
-                    btn->debounce_states = STATE_WAIT_FOR_BTN_RELEASE;
-                    printf("STATE_WAIT_FOR_BTN_RELEASE\n");
+                    button_event      = BUTTON_PRESSED;
+                    btn->press_cycles = 0;
+                    btn->states       = STATE_WAIT_FOR_BUTTON_RELEASE;
+                    printf("STATE_WAIT_FOR_BUTTON_RELEASE\n");
                 }
             }
             else
             {
-                btn->debounce_states = STATE_WAIT_FOR_BTN_PRESS;
-                printf("STATE_WAIT_FOR_BTN_PRESS\n");
+                btn->states = STATE_WAIT_FOR_BUTTON_PRESS;
+                printf("STATE_WAIT_FOR_BUTTON_PRESS\n");
             }
             break;
-        case STATE_WAIT_FOR_BTN_RELEASE:
-            ++btn->cycle_count;
-            if (button_state == BTN_DOWN)  // holding
+        case STATE_WAIT_FOR_BUTTON_RELEASE:
+            ++btn->press_cycles;
+            if (is_button_down)  // holding
             {
-                if (btn->cycle_count >= BTN_HOLD_CYCLES)
+                if (btn->press_cycles >= BUTTON_HOLD_CYCLE_THLD)
                 {
-                    btn->hold    = 1;
-                    button_event = BTN_HOLD;
-                    printf("Key hold!!! cycle = %d\n", btn->cycle_count);
+                    if (btn->hold != 1)
+                    {
+                        btn->hold    = 1;
+                        button_event = BUTTON_HOLD;
+                        printf("Button hold!!!\n");
+                    }
                 }
             }
             else  // released
             {
-                btn->debounce_cycle_count = 0;
-                btn->debounce_states      = STATE_BTN_RELEASE_DEBOUNCE;
-                printf("STATE_BTN_RELEASE_DEBOUNCE\n");
+                btn->debounce_cycles = 0;
+                btn->states          = STATE_BUTTON_RELEASE_DEBOUNCE;
+                printf("STATE_BUTTON_RELEASE_DEBOUNCE\n");
             }
             break;
-        case STATE_BTN_RELEASE_DEBOUNCE:
-            ++btn->debounce_cycle_count;
-            if (button_state == BTN_UP)  // still released
+        case STATE_BUTTON_RELEASE_DEBOUNCE:
+            ++btn->debounce_cycles;
+            if (!is_button_down)  // still released after debounce time
             {
-                if (btn->debounce_cycle_count >= BTN_DEBOUNCE_STABLE_CYCLES)
+                if (btn->debounce_cycles >= BUTTON_DEBOUNCE_STABLE_CYCLES)
                 {
-                    button_event         = btn->hold ? BTN_HOLD_RELEASE : BTN_RELEASE;
-                    btn->cycle_count     = 0;
-                    btn->hold            = 0;
-                    btn->debounce_states = STATE_WAIT_FOR_BTN_PRESS;
-                    printf("STATE_WAIT_FOR_BTN_PRESS\n");
+                    button_event      = btn->hold ? BUTTON_HOLD_RELEASED : BUTTON_RELEASED;
+                    btn->press_cycles = 0;
+                    btn->hold         = 0;
+                    btn->states       = STATE_WAIT_FOR_BUTTON_PRESS;
+                    printf("STATE_WAIT_FOR_BUTTON_PRESS\n");
                 }
             }
             else
             {
-                btn->debounce_states = STATE_WAIT_FOR_BTN_RELEASE;
-                printf("STATE_WAIT_FOR_BTN_RELEASE\n");
+                btn->states = STATE_WAIT_FOR_BUTTON_RELEASE;
+                printf("STATE_WAIT_FOR_BUTTON_RELEASE\n");
             }
             break;
     }
 
-    Delay_Ms(BTN_DEBOUNCE_INTERVAL_MS);
-
     return button_event;
+}
+
+void button_debounce(void)
+{
+    Delay_Ms(BUTTON_DEBOUNCE_INTERVAL_MS);
 }
