@@ -3,9 +3,11 @@
 
 #define BUTTON_DEBOUNCE_INTERVAL_MS   5    // 5ms
 #define BUTTON_DEBOUNCE_STABLE_CYCLES 5    // 5ms x 5 = 25ms
-#define BUTTON_HOLD_CYCLE_THLD        200  // 5ms x 200 = 1000ms
+#define BUTTON_HOLD_CYCLE_THRESHOLD   200  // 5ms x 200 = 1000ms
 
-enum states
+#define printf(...) (void)0  // Disable printf to save space
+
+enum button_states
 {
     STATE_WAIT_FOR_BUTTON_PRESS,
     STATE_BUTTON_PRESS_DEBOUNCE,
@@ -19,22 +21,7 @@ void init_button(button_t *btn, uint8_t pin)
     btn->hold            = 0;
     btn->press_cycles    = 0;
     btn->debounce_cycles = 0;
-    btn->states          = STATE_WAIT_FOR_BUTTON_PRESS;
-
-    if (funDigitalRead(pin) == FUN_LOW)
-    {
-        btn->states = STATE_WAIT_FOR_BUTTON_RELEASE;
-        uint8_t button_event;
-        while (1)  // Wait until button released
-        {
-            button_event = get_button_event(btn);
-            if (button_event == BUTTON_RELEASED || button_event == BUTTON_HOLD_RELEASED)
-            {
-                break;
-            }
-            button_debounce();
-        }
-    }
+    btn->states = (funDigitalRead(pin) == FUN_HIGH) ? STATE_WAIT_FOR_BUTTON_PRESS : STATE_WAIT_FOR_BUTTON_RELEASE;
 }
 
 uint8_t get_button_event(button_t *btn)
@@ -74,7 +61,7 @@ uint8_t get_button_event(button_t *btn)
             ++btn->press_cycles;
             if (is_button_down)  // holding
             {
-                if (btn->press_cycles >= BUTTON_HOLD_CYCLE_THLD)
+                if (btn->press_cycles >= BUTTON_HOLD_CYCLE_THRESHOLD)
                 {
                     if (btn->hold != 1)
                     {
