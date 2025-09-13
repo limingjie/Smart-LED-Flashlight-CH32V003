@@ -37,7 +37,6 @@
 
 enum light_modes
 {
-    MODE_DUMMY = 0,  // To skip the first key release after powering on
     MODE_ON,
     MODE_DIMMING,
     MODE_BLINK,
@@ -202,7 +201,7 @@ void power_monitor(void)
 
 void update_led(void)
 {
-    printf("Change to %s, level %d\n", mode_names[current_mode - 1], current_level);
+    printf("Change to %s, level %d\n", mode_names[current_mode], current_level);
 
     disable_systick();
 
@@ -253,36 +252,20 @@ int main(void)
     funAnalogInit();
     funPinMode(PD6, GPIO_CFGLR_IN_ANALOG);
 
-    // Run first power monitoring on startup
-    power_monitor();
-
     // Init TIM1 for PWM
     tim1_pwm_init();
-    // TIM1->CH4CVR = PWM_CLOCKS_FULL_DUTY_CYCLE;  // Starts with mode 0 - 100% brightness
-
-    // Init buttons
-    // funPinMode(PIN_MODE_BUTTON, GPIO_CFGLR_IN_PUPD); // Share the same pin as latch, already set above.
-    // funDigitalWrite(PIN_MODE_BUTTON, FUN_HIGH);
-    funPinMode(PIN_LEVEL_BUTTON, GPIO_CFGLR_IN_PUPD);
-    funDigitalWrite(PIN_LEVEL_BUTTON, FUN_HIGH);
+    // TIM1->CH4CVR = PWM_CLOCKS_FULL_DUTY_CYCLE;  // Starts with MODE_ON - 100% brightness
+    update_led();
 
     button_t mode_button;
     init_button(&mode_button, PIN_MODE_BUTTON);
     button_t level_button;
     init_button(&level_button, PIN_LEVEL_BUTTON);
 
-    uint16_t power_monitoring_cycles = 0;
+    uint16_t power_monitoring_cycles           = 0;
+    uint8_t  is_in_power_on_transitional_state = 1;
     while (1)
     {
-        if (current_mode != MODE_SOS)  // In an SOS, do not check power to avoid interference
-        {
-            if (++power_monitoring_cycles >= POWER_MONITORING_CYCLES)
-            {
-                power_monitor();
-                power_monitoring_cycles = 0;
-            }
-        }
-
         switch (get_button_event(&mode_button))
         {
             case BUTTON_HOLD:  // Enter SOS mode directly
@@ -292,9 +275,16 @@ int main(void)
                     update_led();
                 }
                 break;
+            case BUTTON_PRESSED:
+                // End the power on transitional state on first key press.
+                is_in_power_on_transitional_state = 0;
+                break;
             case BUTTON_RELEASED:  // Change light mode
-                // printf("Mode button released.\n");
+                // Omit the transitional key release after power on
+                if (is_in_power_on_transitional_state)
+                    break;
 
+                // printf("Mode button released.\n");
                 // Move to next mode
                 current_mode++;
                 if (current_mode == MODE_OFF)
@@ -317,6 +307,14 @@ int main(void)
                 current_level = 0;  // Reset setting to max
                 update_led();
                 break;
+            case BUTTON_DOUBLE_PRESS_RELEASED:
+                if (current_mode > MODE_ON)
+                {
+                    current_mode--;
+                    current_level = 0;  // Reset setting to max
+                    update_led();
+                }
+                break;
         }
 
         switch (get_button_event(&level_button))
@@ -330,6 +328,21 @@ int main(void)
                     update_led();
                 }
                 break;
+            case BUTTON_DOUBLE_PRESS_RELEASED:  // Change light setting
+                // printf("Set button double press released.\n");
+                if (current_mode != MODE_SOS)  // Do not interfere with SOS mode
+                {
+                    if (current_level > 0)
+                    {
+                        current_level--;
+                    }
+                    else
+                    {
+                        current_level = 7;
+                    }
+                    update_led();
+                }
+                break;
             case BUTTON_HOLD:  // Change light setting to min or max
                 // printf("Set button hold.\n");
                 if (current_mode != MODE_SOS)  // Do not interfere with SOS mode
@@ -338,6 +351,15 @@ int main(void)
                     update_led();
                 }
                 break;
+        }
+
+        if (current_mode != MODE_SOS)  // In an SOS, do not check power to avoid interference
+        {
+            if (++power_monitoring_cycles >= POWER_MONITORING_CYCLES)
+            {
+                power_monitor();
+                power_monitoring_cycles = 0;
+            }
         }
 
         button_debounce();
