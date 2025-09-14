@@ -262,8 +262,7 @@ int main(void)
     button_t level_button;
     init_button(&level_button, PIN_LEVEL_BUTTON);
 
-    uint16_t power_monitoring_cycles           = 0;
-    uint8_t  is_in_power_on_transitional_state = 1;
+    uint16_t power_monitoring_cycles = 0;
     while (1)
     {
         switch (get_button_event(&mode_button))
@@ -275,15 +274,7 @@ int main(void)
                     update_led();
                 }
                 break;
-            case BUTTON_PRESSED:
-                // End the power on transitional state on first key press.
-                is_in_power_on_transitional_state = 0;
-                break;
-            case BUTTON_RELEASED:  // Change light mode
-                // Omit the transitional key release after power on
-                if (is_in_power_on_transitional_state)
-                    break;
-
+            case BUTTON_RELEASED:  // Light mode +
                 // printf("Mode button released.\n");
                 // Move to next mode
                 current_mode++;
@@ -307,7 +298,9 @@ int main(void)
                 current_level = 0;  // Reset setting to max
                 update_led();
                 break;
-            case BUTTON_DOUBLE_PRESS_RELEASED:
+            case BUTTON_DOUBLE_PRESS_RELEASED:  // Light mode -
+            case BUTTON_TRIPLE_PRESS_RELEASED:
+            case BUTTON_MORE_PRESS_RELEASED:
                 if (current_mode > MODE_ON)
                 {
                     current_mode--;
@@ -319,7 +312,7 @@ int main(void)
 
         switch (get_button_event(&level_button))
         {
-            case BUTTON_RELEASED:  // Change light setting
+            case BUTTON_RELEASED:  // Light setting +
                 // printf("Set button released.\n");
                 if (current_mode != MODE_SOS)  // Do not interfere with SOS mode
                 {
@@ -328,7 +321,9 @@ int main(void)
                     update_led();
                 }
                 break;
-            case BUTTON_DOUBLE_PRESS_RELEASED:  // Change light setting
+            case BUTTON_DOUBLE_PRESS_RELEASED:  // Light setting -
+            case BUTTON_TRIPLE_PRESS_RELEASED:
+            case BUTTON_MORE_PRESS_RELEASED:
                 // printf("Set button double press released.\n");
                 if (current_mode != MODE_SOS)  // Do not interfere with SOS mode
                 {
@@ -362,6 +357,6 @@ int main(void)
             }
         }
 
-        button_debounce();
+        debounce_delay();
     }
 }
