@@ -11,11 +11,13 @@
 #include "ch32fun.h"
 #include "button.h"
 
-#define PIN_POWER_LED    PC1  // Power LED pin
-#define PIN_LATCH        PC2  // Latch pin
-#define PIN_MODE_BUTTON  PC2  // Mode button pin, same as latch pin
-#define PIN_LEVEL_BUTTON PA2  // Set button pin
-#define PIN_PWM          PC4  // PWM output pin
+#define PIN_POWER_LED     PC1       // Power LED pin
+#define PIN_LATCH         PC2       // Latch pin
+#define PIN_MODE_BUTTON   PC2       // Mode button pin, same as latch pin
+#define PIN_LEVEL_BUTTON  PA2       // Set button pin
+#define PIN_PWM           PC4       // PWM output pin
+#define PIN_POWER_MONITOR PD6       // Power monitoring pin
+#define ADC_POWER_MONITOR ANALOG_6  // Power monitoring ADC channel A6 (PD6)
 
 #define POWER_MONITORING_CYCLES     1000  // Every 5 seconds - button_debounce() = 5ms
 #define POWER_VOLT_DIV_R_UP         2     // 22k or 10k   | 2:3 voltage divider
@@ -33,7 +35,7 @@
 
 #define MORSE_CODE_DIT_DURATION_MS 150  // 100ms
 
-// #define printf(...) (void)0  // Disable printf to save space
+#define printf(...) (void)0  // Disable printf to save flash
 
 enum light_modes
 {
@@ -171,8 +173,8 @@ void power_monitor(void)
     // Average 8 samples for better stability
     for (uint8_t i = 0; i < 8; i++)
     {
-        adc_ref += funAnalogRead(ANALOG_8);  // Internal reference 1.2V
-        adc_mon += funAnalogRead(ANALOG_6);  // A6 (PD6)
+        adc_ref += funAnalogRead(ANALOG_8);           // Internal reference 1.2V
+        adc_mon += funAnalogRead(ADC_POWER_MONITOR);  // A6 (PD6)
     }
     adc_ref /= 8;
     adc_mon /= 8;
@@ -250,7 +252,7 @@ int main(void)
 
     // Init ADC for battery voltage monitoring
     funAnalogInit();
-    funPinMode(PD6, GPIO_CFGLR_IN_ANALOG);
+    funPinMode(PIN_POWER_MONITOR, GPIO_CFGLR_IN_ANALOG);
 
     // Init TIM1 for PWM
     tim1_pwm_init();

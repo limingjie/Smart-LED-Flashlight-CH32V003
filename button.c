@@ -6,7 +6,7 @@
 #define BUTTON_RELEASE_STABLE_CYCLES  50   // 5ms x 50  = 250ms
 #define BUTTON_HOLD_STABLE_CYCLES     200  // 5ms x 200 = 1000ms
 
-// #define printf(...) (void)0  // Disable printf to save space
+#define printf(...) (void)0  // Disable printf to save flash
 
 enum button_states
 {

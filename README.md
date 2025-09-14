@@ -32,6 +32,12 @@ This project demonstrates a low-cost, USB-powered portable LED light using the C
 - Operates from `3.0V` to `5.5V` (suitable for lithium batteries)
 - Soft latching power circuit for zero standby current
 - Automatic power monitoring and low-voltage lockout to prevent battery drain
+- 4 Modes - `On`, `Dimming`, `Blink`, and `SOS`.
+  - Click/Double click `Mode` button to move to previous/next mode.
+  - Hold `Mode` button anytime to directly enter `SOS` mode.
+- 8 Levels
+  - Click/Double click `Level` button to increase/decrease.
+  - Hold `Level` button to switch between min and max.
 
 ## Components
 
