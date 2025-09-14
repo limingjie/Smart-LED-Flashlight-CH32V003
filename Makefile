@@ -1,6 +1,6 @@
 all : flash
 
-TARGET:=led
+TARGET:=flashlight
 ADDITIONAL_C_FILES:=button.c
 
 TARGET_MCU?=CH32V003

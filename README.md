@@ -1,8 +1,20 @@
-# Portable LED Light with CH32V003 & SGM3732
+# Smart LED Flashlight - CH32V003
 
-This project demonstrates a low-cost, USB-powered portable LED light using the CH32V003 RISC-V microcontroller and the SGM3732 high-efficiency LED driver. It features PWM-controlled brightness, support for up to 10 LEDs in series, and a soft latching power circuit for zero standby current. The design is optimized for compactness and energy efficiency, making it ideal for portable lighting applications.
+**Smart LED Flashlight - CH32V003** is an open-source, compact, and energy-efficient flashlight solution based on the CH32V003 RISC-V microcontroller and SGM3732 LED driver.
 
-- [Portable LED Light with CH32V003 \& SGM3732](#portable-led-light-with-ch32v003--sgm3732)
+It features multiple adjustable brightness lighting modes (Steady, Breathing, Blinking, SOS), battery monitoring, and zero standby current via a soft latching power circuit.
+
+Designed for DIY enthusiasts, emergency kits, portable lighting, and educational projects.
+
+- Low-cost, minimal component count
+- USB or battery powered (3.0V–5.5V)
+- Up to 10 LEDs in series
+- Advanced features: PWM dimming, SOS mode, battery protection
+- Open source hardware and firmware
+
+---
+
+- [Smart LED Flashlight - CH32V003](#smart-led-flashlight---ch32v003)
   - [Circuit on Breadboard](#circuit-on-breadboard)
   - [Schematic](#schematic)
   - [Features](#features)
@@ -15,6 +27,7 @@ This project demonstrates a low-cost, USB-powered portable LED light using the C
     - [LDO - ME6211](#ldo---me6211)
   - [Minimized ch32fun Library](#minimized-ch32fun-library)
   - [References](#references)
+  - [License](#license)
 
 ## Circuit on Breadboard
 
@@ -29,10 +42,10 @@ This project demonstrates a low-cost, USB-powered portable LED light using the C
 - Low-cost
 - PWM-controlled adjustable brightness
 - Supports up to 10 LEDs in series
-- Operates from `3.0V` to `5.5V` (suitable for lithium batteries)
+- Operates from `3.0V` to `5.5V` (suitable for single cell lithium battery)
 - Soft latching power circuit for zero standby current
 - Automatic power monitoring and low-voltage lockout to prevent battery drain
-- 4 Modes - `On`, `Dimming`, `Blink`, and `SOS`.
+- 4 Modes - `Steady`, `Breathing`, `Blinking`, and `SOS`.
   - Click/Double click `Mode` button to move to previous/next mode.
   - Hold `Mode` button anytime to directly enter `SOS` mode.
 - 8 Levels
@@ -158,3 +171,29 @@ The CH32V003 operates from `2.7V` to `5.5V`, but shows noticeable current fluctu
 - [A Guide to Debouncing](https://my.eng.utah.edu/~cs5780/debouncing.pdf)
 - [The simplest button debounce solution](https://www.e-tinkers.com/2021/05/the-simplest-button-debounce-solution/)
 - [Museum of the Game - Let's design some POKEY replacements](https://forums.arcade-museum.com/threads/lets-design-some-pokey-replacements.515774/post-4623716)
+
+## License
+
+![CC by-nc-sa](Images/by-nc-sa.svg)
+
+This work is licensed under a [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0)](https://creativecommons.org/licenses/by-nc-sa/4.0/).
+
+**You are free to:**
+
+- **Share** — copy and redistribute the material in any medium or format
+- **Adapt** — remix, transform, and build upon the material
+
+The licensor cannot revoke these freedoms as long as you follow the license terms.
+
+**Under the following terms:**
+
+- **Attribution** - You must give appropriate credit, provide a link to the license, and indicate if changes were made. You may do so in any reasonable manner, but not in any way that suggests the licensor endorses you or your use.
+- **NonCommercial** - You may not use the material for commercial purposes.
+- **ShareAlike** - If you remix, transform, or build upon the material, you must distribute your contributions under the same license as the original.
+- **No additional restrictions** — You may not apply legal terms or technological measures that legally restrict others from doing anything the license permits.
+
+**Notices:**
+
+You do not have to comply with the license for elements of the material in the public domain or where your use is permitted by an applicable exception or limitation.
+
+No warranties are given. The license may not give you all of the permissions necessary for your intended use. For example, other rights such as publicity, privacy, or moral rights may limit how you use the material.

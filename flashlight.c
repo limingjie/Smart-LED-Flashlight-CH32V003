@@ -1,5 +1,5 @@
 /*
- * CH32V003 SGM3732 Portable LED Light
+ * Smart LED Flashlight - CH32V003
  *
  * Aug 2025 by Li Mingjie
  *  - Email:  limingjie@outlook.com
@@ -39,14 +39,14 @@
 
 enum light_modes
 {
-    MODE_ON,
-    MODE_DIMMING,
-    MODE_BLINK,
+    MODE_STEADY,
+    MODE_BREATHING,
+    MODE_BLINKING,
     MODE_SOS,
     MODE_OFF
 };
 
-const char *mode_names[] = {"MODE_ON", "MODE_DIMMING", "MODE_BLINK", "MODE_SOS"};
+const char *mode_names[] = {"MODE_STEADY", "MODE_BREATHING", "MODE_BLINKING", "MODE_SOS"};
 
 uint8_t  current_mode           = 0;     // 5 modes: brightness, blink, dimming, sos, off
 uint8_t  current_level          = 0;     // 0-7 levels of brightness, blink speed, dimming speed.
@@ -77,7 +77,7 @@ void SysTick_Handler(void)
     // process mode and level changes
     switch (current_mode)
     {
-        case MODE_DIMMING:
+        case MODE_BREATHING:
             TIM1->CH4CVR = PWM_CLOCKS_FULL_DUTY_CYCLE * current_pwm_duty_cycle / 100;
             (pwm_sequence == PWM_SEQUENCE_INCREASE) ? current_pwm_duty_cycle++ : current_pwm_duty_cycle--;
             if (current_pwm_duty_cycle >= 100 || current_pwm_duty_cycle <= 0)
@@ -85,7 +85,7 @@ void SysTick_Handler(void)
                 pwm_sequence = !pwm_sequence;
             }
             break;
-        case MODE_BLINK:
+        case MODE_BLINKING:
             TIM1->CH4CVR = (pwm_sequence == PWM_SEQUENCE_ON) ? PWM_CLOCKS_FULL_DUTY_CYCLE : PWM_CLOCKS_ZERO_DUTY_CYCLE;
             pwm_sequence = !pwm_sequence;
             break;
@@ -209,16 +209,16 @@ void update_led(void)
 
     switch (current_mode)
     {
-        case MODE_ON:
+        case MODE_STEADY:
             TIM1->CH4CVR = (PWM_CLOCKS_FULL_DUTY_CYCLE * (8 - current_level)) >> 3;  // 12.5, 25%, 37.5%, ..., 100%
             break;
-        case MODE_DIMMING:
+        case MODE_BREATHING:
             pwm_sequence           = PWM_SEQUENCE_DECREASE;     // Starts by decreasing brightness
             pwm_update_interval_ms = (current_level + 1) << 1;  // 2ms, 4ms, 6ms, ..., 16ms
             current_pwm_duty_cycle = 100;                       // 100% duty cycle
             systick_init();
             break;
-        case MODE_BLINK:
+        case MODE_BLINKING:
             pwm_sequence           = PWM_SEQUENCE_ON;
             pwm_update_interval_ms = (current_level + 3) << 5;  // 96ms, 128ms, 160ms, ..., 320ms
             systick_init();
@@ -256,7 +256,7 @@ int main(void)
 
     // Init TIM1 for PWM
     tim1_pwm_init();
-    // TIM1->CH4CVR = PWM_CLOCKS_FULL_DUTY_CYCLE;  // Starts with MODE_ON - 100% brightness
+    // TIM1->CH4CVR = PWM_CLOCKS_FULL_DUTY_CYCLE;  // Starts with MODE_STEADY - 100% brightness
     update_led();
 
     button_t mode_button;
@@ -291,22 +291,22 @@ int main(void)
                     // be endless BUTTON_HOLD events.
                     Delay_Ms(100);
                     funDigitalWrite(PIN_LATCH, FUN_HIGH);  // Input pull-up
-                    current_mode  = MODE_ON;
+                    current_mode  = MODE_STEADY;
                     current_level = 0;
                     update_led();
                     break;
                 }
 
-                current_level = 0;  // Reset setting to max
+                current_level = 0;  // Reset level to max
                 update_led();
                 break;
             case BUTTON_DOUBLE_PRESS_RELEASED:  // Light mode -
             case BUTTON_TRIPLE_PRESS_RELEASED:
             case BUTTON_MORE_PRESS_RELEASED:
-                if (current_mode > MODE_ON)
+                if (current_mode > MODE_STEADY)
                 {
                     current_mode--;
-                    current_level = 0;  // Reset setting to max
+                    current_level = 0;  // Reset level to max
                     update_led();
                 }
                 break;
@@ -314,7 +314,7 @@ int main(void)
 
         switch (get_button_event(&level_button))
         {
-            case BUTTON_RELEASED:  // Light setting +
+            case BUTTON_RELEASED:  // Light level +
                 // printf("Set button released.\n");
                 if (current_mode != MODE_SOS)  // Do not interfere with SOS mode
                 {
@@ -323,7 +323,7 @@ int main(void)
                     update_led();
                 }
                 break;
-            case BUTTON_DOUBLE_PRESS_RELEASED:  // Light setting -
+            case BUTTON_DOUBLE_PRESS_RELEASED:  // Light level -
             case BUTTON_TRIPLE_PRESS_RELEASED:
             case BUTTON_MORE_PRESS_RELEASED:
                 // printf("Set button double press released.\n");
@@ -340,7 +340,7 @@ int main(void)
                     update_led();
                 }
                 break;
-            case BUTTON_HOLD:  // Change light setting to min or max
+            case BUTTON_HOLD:  // Change light level to min or max
                 // printf("Set button hold.\n");
                 if (current_mode != MODE_SOS)  // Do not interfere with SOS mode
                 {
