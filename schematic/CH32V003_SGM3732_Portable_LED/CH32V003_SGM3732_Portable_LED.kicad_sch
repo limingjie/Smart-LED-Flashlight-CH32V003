@@ -4263,7 +4263,7 @@
 	)
 	(wire
 		(pts
-			(xy 266.7 147.32) (xy 266.7 146.05)
+			(xy 270.51 147.32) (xy 270.51 146.05)
 		)
 		(stroke
 			(width 0)
@@ -4839,7 +4839,7 @@
 	)
 	(global_label "Power_LED"
 		(shape input)
-		(at 266.7 130.81 90)
+		(at 270.51 130.81 90)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -4849,7 +4849,7 @@
 		)
 		(uuid "e951ec0d-9f5c-4d67-a40c-23c5b04b44b1")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 266.7 117.7858 90)
+			(at 270.51 117.7858 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6496,7 +6496,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 266.7 134.62 0)
+		(at 270.51 134.62 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -6504,7 +6504,7 @@
 		(dnp no)
 		(uuid "51864620-8a9e-4dad-866a-7c7c0674dea6")
 		(property "Reference" "R_{POWER}"
-			(at 269.24 133.096 0)
+			(at 273.05 133.096 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6513,7 +6513,7 @@
 			)
 		)
 		(property "Value" "1kΩ"
-			(at 269.24 135.89 0)
+			(at 273.05 135.89 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6522,7 +6522,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 264.922 134.62 90)
+			(at 268.732 134.62 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6531,7 +6531,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 266.7 134.62 0)
+			(at 270.51 134.62 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6540,7 +6540,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 266.7 134.62 0)
+			(at 270.51 134.62 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6780,7 +6780,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "6b71fc39-d299-44dd-bad2-e5852ae3d616")
-		(property "Reference" "SW_{Latch}1"
+		(property "Reference" "SW_{Level}"
 			(at 253.492 136.906 90)
 			(effects
 				(font
@@ -6789,7 +6789,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "SW_Push"
+		(property "Value" "Level Button"
 			(at 253.746 139.954 90)
 			(effects
 				(font
@@ -6833,7 +6833,7 @@
 		(instances
 			(project "CH32V003_SGM3732_Portable_LED"
 				(path "/06b79fde-572f-4dd7-9a4e-c70d81eb6fb5"
-					(reference "SW_{Latch}1")
+					(reference "SW_{Level}")
 					(unit 1)
 				)
 			)
@@ -6914,7 +6914,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "6b92b0ec-b31a-4dfe-ae45-77585fdda7ad")
-		(property "Reference" "SW_{Latch}"
+		(property "Reference" "SW_{Mode}"
 			(at 139.192 89.916 90)
 			(effects
 				(font
@@ -6923,7 +6923,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "SW_Push"
+		(property "Value" "Mode Button"
 			(at 139.446 92.964 90)
 			(effects
 				(font
@@ -6967,7 +6967,7 @@
 		(instances
 			(project "CH32V003_SGM3732_Portable_LED"
 				(path "/06b79fde-572f-4dd7-9a4e-c70d81eb6fb5"
-					(reference "SW_{Latch}")
+					(reference "SW_{Mode}")
 					(unit 1)
 				)
 			)
@@ -8393,7 +8393,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 266.7 147.32 0)
+		(at 270.51 147.32 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -8402,7 +8402,7 @@
 		(fields_autoplaced yes)
 		(uuid "c5575178-fb2c-47d8-b64c-a1eaae656e6b")
 		(property "Reference" "#PWR07"
-			(at 266.7 153.67 0)
+			(at 270.51 153.67 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8411,7 +8411,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 266.7 152.4 0)
+			(at 270.51 152.4 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8419,7 +8419,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 266.7 147.32 0)
+			(at 270.51 147.32 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8428,7 +8428,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 266.7 147.32 0)
+			(at 270.51 147.32 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8437,7 +8437,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 266.7 147.32 0)
+			(at 270.51 147.32 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8526,7 +8526,7 @@
 	)
 	(symbol
 		(lib_id "Device:LED")
-		(at 266.7 142.24 270)
+		(at 270.51 142.24 270)
 		(mirror x)
 		(unit 1)
 		(exclude_from_sim no)
@@ -8535,7 +8535,7 @@
 		(dnp no)
 		(uuid "db4685f1-d614-455d-b3d3-649e668b5a08")
 		(property "Reference" "D_{Power}"
-			(at 269.24 140.97 90)
+			(at 273.05 140.97 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8544,7 +8544,7 @@
 			)
 		)
 		(property "Value" "LED"
-			(at 269.24 143.51 90)
+			(at 273.05 143.51 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8553,7 +8553,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 266.7 142.24 0)
+			(at 270.51 142.24 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8562,7 +8562,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 266.7 142.24 0)
+			(at 270.51 142.24 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8571,7 +8571,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 266.7 142.24 0)
+			(at 270.51 142.24 0)
 			(effects
 				(font
 					(size 1.27 1.27)
