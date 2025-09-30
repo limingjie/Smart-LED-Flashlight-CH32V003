@@ -46,8 +46,8 @@ Designed for DIY enthusiasts, emergency kits, portable lighting, and educational
 - Soft latching power circuit for zero standby current
 - Automatic power monitoring and low-voltage lockout to prevent battery drain
 - 4 Modes - `Steady`, `Breathing`, `Blinking`, and `SOS`.
-  - Click/Double click `Mode` button to move to previous/next mode.
-  - Hold `Mode` button anytime to directly enter `SOS` mode.
+  - Click/Double click `Mode` button to switch to previous/next mode.
+  - Hold `Mode` button anytime to directly switch to `SOS` mode.
 - 8 Levels
   - Click/Double click `Level` button to increase/decrease.
   - Hold `Level` button to switch between min and max.
@@ -58,12 +58,16 @@ Designed for DIY enthusiasts, emergency kits, portable lighting, and educational
 
 The CH32V003 is a low-cost, high-performance 32-bit RISC-V microcontroller from WCH. It features a compact design, low power consumption, and a rich set of peripherals, making it ideal for embedded applications and cost-sensitive projects. The CH32V003 supports various interfaces such as UART, SPI, I2C, and PWM, and is well-suited for controlling LED drivers and other hardware components.
 
-- [CH32V003 Datasheet](./Documents/CH32V003%20Datasheet%20-%20V1.7.PDF)
-- [CH32V003 Reference Manual](./Documents/CH32V003%20Reference%20Manual%20-%20V1.7.PDF)
+- [CH32V003 Datasheet V1.7](./Documents/CH32V003%20Datasheet%20-%20V1.7.PDF)
+- [CH32V003 Reference Manual V1.7](./Documents/CH32V003%20Reference%20Manual%20-%20V1.7.PDF)
+
+![CH32V003 Pinout](./Images/CH32V003J4M6_Pinout_No_Remapping.png)
+
+[Link to More CH32V003 Pinout charts](https://github.com/limingjie/WCH-MCU-Pinouts/tree/main/MCU/CH32V)
 
 #### Clock Selection
 
-With a `1.5MHz` clock (`1/16` of the internal high-speed clock), the CH32V003 draws around `1.53mA` (the power LED draws around `1.35mA`). Clocks lower than `1.5MHz` do not seem to work properly after enabling the ADC and may brick the chip. If this happens, try the unbrick command (`minichlink -u`) or flash a firmware with a higher clock; note that it may require more than 10 attempts. The chip is quite robust, but recovering it may require patience!
+With a `1.5MHz` clock (`1/16` of the internal `24MHz` high-speed clock), the CH32V003 draws around `1.53mA` (the power LED draws around `1.35mA`). With clocks lower than `1.5MHz`, CH32V003 does not seem to work properly with ADC enabled and may brick the chip. If this happens, try the unbrick command (`minichlink -u`) or flash a firmware with a higher clock; note that it may require more than 10 attempts. The chip is quite robust, but recovering it may require patience!
 
 #### Battery Monitoring
 
@@ -99,6 +103,8 @@ Refer to the [CH32V003 Soft Latching Power Circuits](https://github.com/limingji
 ### LDO - ME6211
 
 The CH32V003 operates from `2.7V` to `5.5V`, but shows noticeable current fluctuations when powered directly from USB. Using an LDO stabilizes the MCU’s power supply and reduces current consumption by a few milliamps.
+
+When the input voltage drops under `3.3V`, LDO stops regulate, the output voltage is $\text{V}_\text{In} - \text{V}_\text{Dropout}$. The dropout voltage is `~2.6mV` ($\text{V}_\text{In}$ = `~3.3V`) to `5mV` ($\text{V}_\text{In}$ = `2.85V`) when the power consumption is `~3mA`.
 
 - [ME6211 Datasheet - V24](./Documents/ME6211%20Datasheet%20-%20V26.pdf)
 
@@ -140,7 +146,7 @@ The CH32V003 operates from `2.7V` to `5.5V`, but shows noticeable current fluctu
     ```
 
 - **`ch32fun.c`**
-  - Changed line `1728` for `1.5MHz` HCLK, resulting in lower power consumption (<`1.6mA`).
+  - Changed line `1728` for `6MHz` HCLK, resulting in lower power consumption (<`2.6mA`).
 
     ```c
     1720: #elif defined(FUNCONF_USE_HSI) && FUNCONF_USE_HSI
@@ -151,7 +157,7 @@ The CH32V003 operates from `2.7V` to `5.5V`, but shows noticeable current fluctu
     1725:     RCC->CFGR0 = BASE_CFGR0;
     1726:     RCC->CTLR  = BASE_CTLR | RCC_HSION | RCC_PLLON; // Use HSI, enable PLL.
     1727: #else
-    1728:     RCC->CFGR0 = RCC_HPRE_DIV16;                    // HCLK = SYSCLK / 16
+    1728:     RCC->CFGR0 = RCC_HPRE_DIV4;                    // HCLK = SYSCLK / 4
     1729:     RCC->CTLR  = BASE_CTLR | RCC_HSION;             // Use HSI only.
     1730: #endif
     ```

@@ -64,7 +64,7 @@
 #define FUNCONF_USE_PLL           0        // Don't use PLL - Phase-Locked Loop - clock multiplier.
 #define FUNCONF_USE_HSI           1        // Use HSI - Internal High-Frequency RC Oscillator
 #define FUNCONF_USE_HSE           0        // Use HSE - External High-Frequency Oscillator
-#define FUNCONF_SYSTEM_CORE_CLOCK 1500000  // Computed Clock in Hz - 24MHz / 16 = 1.5MHz
+#define FUNCONF_SYSTEM_CORE_CLOCK 6000000  // Computed Clock in Hz - 24MHz / 4 = 6MHz
 #define FUNCONF_SYSTICK_USE_HCLK  1        // Set SYSTICK to use HCLK or HCLK/8.
 #define FUNCONF_USE_DEBUGPRINTF   1
 

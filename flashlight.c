@@ -25,7 +25,7 @@
 #define POWER_LOW_VOLT_THRESHOLD_MV 3000  // 3.0V
 #define POWER_LOW_COUNT_THRESHOLD   3     // 3 times
 
-#define PWM_FREQUENCY              ((uint32_t)5 * 1000)                         // 5kHz
+#define PWM_FREQUENCY              ((uint32_t)60 * 1000)                        // 60kHz
 #define PWM_CLOCKS_FULL_DUTY_CYCLE (FUNCONF_SYSTEM_CORE_CLOCK / PWM_FREQUENCY)  // 100% duty cycle
 #define PWM_CLOCKS_ZERO_DUTY_CYCLE 0                                            // 0% duty cycle
 #define PWM_SEQUENCE_ON            1
@@ -35,7 +35,7 @@
 
 #define MORSE_CODE_DIT_DURATION_MS 150  // 100ms
 
-#define printf(...) (void)0  // Disable printf to save flash
+// #define printf(...) (void)0  // Disable printf to save flash
 
 enum light_modes
 {
