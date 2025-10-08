@@ -85,7 +85,7 @@ $$
 \text{V}_\text{Battery} &= \text{V}_\text{DD} \times \frac{\text{ADC}_{\text{Battery}}}{1023} \\
 &= \frac{\text{V}_\text{Reference}}{\frac{\text{ADC}_{\text{Reference}}}{1023}} \times \frac{\text{ADC}_{\text{Battery}}}{1023} \\
 &= \text{V}_\text{Reference} \times \frac{\text{ADC}_{\text{Battery}}}{\text{ADC}_\text{Reference}}\\
-&=  1.2\,\text{V} \times \frac{\text{ADC}_{\text{Battery}}}{\text{ADC}_\text{Reference}}
+&=  1.2\ \text{V} \times \frac{\text{ADC}_{\text{Battery}}}{\text{ADC}_\text{Reference}}
 \end{align}
 $$
 
