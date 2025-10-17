@@ -248,7 +248,7 @@ int main(void)
 
     // Init LED pin
     funPinMode(PIN_POWER_LED, GPIO_Speed_10MHz | GPIO_CNF_OUT_PP);
-    funDigitalWrite(PIN_POWER_LED, FUN_LOW);
+    funDigitalWrite(PIN_POWER_LED, FUN_HIGH);
 
     // Init ADC for battery voltage monitoring
     funAnalogInit();
