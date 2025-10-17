@@ -1,5 +1,7 @@
 # Smart LED Flashlight - CH32V003
 
+![Flashlight](./Images/Smart-Flashlight.jpeg)
+
 **Smart LED Flashlight - CH32V003** is an open-source, compact, and energy-efficient flashlight solution based on the CH32V003 RISC-V microcontroller and SGM3732 LED driver.
 
 It features multiple adjustable brightness lighting modes (Steady, Breathing, Blinking, SOS), battery monitoring, and zero standby current via a soft latching power circuit.
