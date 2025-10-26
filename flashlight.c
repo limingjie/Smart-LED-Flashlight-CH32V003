@@ -46,7 +46,7 @@ enum light_modes
     MODE_OFF
 };
 
-const char *mode_names[] = {"MODE_STEADY", "MODE_BREATHING", "MODE_BLINKING", "MODE_SOS"};
+const char* mode_names[] = {"MODE_STEADY", "MODE_BREATHING", "MODE_BLINKING", "MODE_SOS"};
 
 uint8_t  current_mode           = 0;     // 5 modes: brightness, blink, dimming, sos, off
 uint8_t  current_level          = 0;     // 0-7 levels of brightness, blink speed, dimming speed.
@@ -63,6 +63,16 @@ void systick_init(void)
     SysTick->CTLR = SYSTICK_CTLR_STE | SYSTICK_CTLR_STIE | SYSTICK_CTLR_STCLK;
 }
 
+// Gamma brightness lookup table <https://victornpb.github.io/gamma-table-generator>
+// gamma = 2.00 steps = 100 range = 0-1023
+const uint16_t gamma_lookup_table[100] = {
+    0,   0,   0,   1,   2,   3,   4,   5,   7,   8,   10,  13,  15,  18,  20,  23,  27,  30,  34,   38,
+    42,  46,  51,  55,  60,  65,  71,  76,  82,  88,  94,  100, 107, 114, 121, 128, 135, 143, 151,  159,
+    167, 175, 184, 193, 202, 211, 221, 231, 240, 251, 261, 271, 282, 293, 304, 316, 327, 339, 351,  363,
+    376, 388, 401, 414, 428, 441, 455, 469, 483, 497, 511, 526, 541, 556, 572, 587, 603, 619, 635,  651,
+    668, 685, 702, 719, 736, 754, 772, 790, 808, 827, 845, 864, 883, 903, 922, 942, 962, 982, 1002, 1023,
+};
+
 void disable_systick(void)
 {
     NVIC_DisableIRQ(SysTicK_IRQn);
@@ -78,7 +88,7 @@ void SysTick_Handler(void)
     switch (current_mode)
     {
         case MODE_BREATHING:
-            TIM1->CH4CVR = PWM_CLOCKS_FULL_DUTY_CYCLE * current_pwm_duty_cycle / 100;
+            TIM1->CH4CVR = PWM_CLOCKS_FULL_DUTY_CYCLE * gamma_lookup_table[current_pwm_duty_cycle] / 1023;
             (pwm_sequence == PWM_SEQUENCE_INCREASE) ? current_pwm_duty_cycle++ : current_pwm_duty_cycle--;
             if (current_pwm_duty_cycle >= 100 || current_pwm_duty_cycle <= 0)
             {
